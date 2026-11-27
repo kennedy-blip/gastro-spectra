@@ -1,0 +1,79 @@
+name: Build & Bundle GASTRO-SPECTRA APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm ci || npm install
+
+      - name: Build SvelteKit assets
+        run: npm run build
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Generate Capacitor Android project
+        run: |
+          if [ ! -d android/app ]; then
+            npx cap add android
+          fi
+          mkdir -p android/app/src/main/java/com/gastrospectra/plugins
+          echo "Capacitor android platform ready"
+
+      - name: Sync Capacitor (web assets → android)
+        run: npx cap sync android
+
+      - name: Gradle build (debug-signed release APK)
+        working-directory: android
+        run: |
+          chmod +x gradlew || true
+          ./gradlew assembleRelease --stacktrace || ./gradlew assembleDebug --stacktrace
+
+      - name: Stage APK artifact
+        run: |
+          mkdir -p static/releases
+          APK=$(find android -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK" ]; then echo "No APK produced"; exit 1; fi
+          cp "$APK" static/releases/gastro-spectra-v29.0.0.apk
+          sha256sum static/releases/gastro-spectra-v29.0.0.apk | tee static/releases/gastro-spectra-v29.0.0.apk.sha256
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gastro-spectra-apk
+          path: static/releases/gastro-spectra-v29.0.0.apk
+
+      - name: Commit APK into releases folder
+        run: |
+          git config user.name "gastro-spectra-ci"
+          git config user.email "ci@gastro-spectra.local"
+          git add static/releases/gastro-spectra-v29.0.0.apk static/releases/gastro-spectra-v29.0.0.apk.sha256
+          git commit -m "ci: bundle GASTRO-SPECTRA v29.0.0 APK [skip ci]" || echo "no changes"
+          git push || echo "push skipped"
