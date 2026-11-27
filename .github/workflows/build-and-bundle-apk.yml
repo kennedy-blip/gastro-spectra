@@ -82,6 +82,17 @@ jobs:
           ls -R android/app/src/main/java/com/gastrospectra/plugins
           python3 scripts/patch-android-bridge.py
 
+      - name: Verify the packaged web bundle
+        run: |
+          set -euo pipefail
+          test -f build-apk/index.html
+          grep -q 'favicon.svg' build-apk/index.html
+          for f in favicon.svg favicon.ico site.webmanifest robots.txt; do
+            test -f "build-apk/$f" || { echo "::error::build-apk/$f missing"; exit 1; }
+            test -f "android/app/src/main/assets/public/$f" || { echo "::error::assets/public/$f missing after cap sync"; exit 1; }
+          done
+          echo "web bundle verified: $(find android/app/src/main/assets/public -type f | wc -l) assets copied by cap sync"
+
       - name: Gradle build (debug-signed installable APK)
         working-directory: android
         run: |
@@ -102,6 +113,27 @@ jobs:
           echo "Using $APK"
           cp "$APK" static/releases/gastro-spectra-v29.0.0.apk
           sha256sum static/releases/gastro-spectra-v29.0.0.apk | tee static/releases/gastro-spectra-v29.0.0.apk.sha256
+          unzip -l static/releases/gastro-spectra-v29.0.0.apk | grep -q "assets/public/index.html" \
+            || { echo "::error::APK is missing assets/public/index.html"; exit 1; }
+          unzip -l static/releases/gastro-spectra-v29.0.0.apk | grep -q "assets/public/favicon.svg" \
+            || { echo "::error::APK is missing assets/public/favicon.svg (stale web bundle)"; exit 1; }
+          APK_SHA=$(cut -d' ' -f1 static/releases/gastro-spectra-v29.0.0.apk.sha256)
+          APK_BYTES=$(stat -c%s static/releases/gastro-spectra-v29.0.0.apk)
+          cat > static/releases/build-info.json <<JSON
+          {
+            "app": "GASTRO-SPECTRA",
+            "version": "29.0.0-polyglot",
+            "packageId": "com.gastrospectra.clinical",
+            "commit": "$(git rev-parse --short HEAD)",
+            "runId": "${GITHUB_RUN_ID}",
+            "apk": "gastro-spectra-v29.0.0.apk",
+            "bytes": ${APK_BYTES},
+            "sha256": "${APK_SHA}",
+            "assets": $(find android/app/src/main/assets/public -type f | wc -l),
+            "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+          cat static/releases/build-info.json
           ls -lh static/releases/
 
       - name: Upload APK artifact
@@ -117,6 +149,13 @@ jobs:
         run: |
           git config user.name "gastro-spectra-ci"
           git config user.email "ci@gastro-spectra.local"
-          git add -f static/releases/gastro-spectra-v29.0.0.apk static/releases/gastro-spectra-v29.0.0.apk.sha256
-          git commit -m "ci: bundle GASTRO-SPECTRA v29.0.0 APK [skip ci]" || echo "no changes to commit"
-          git push origin HEAD:main || echo "push skipped (branch protection)"
+          git add -f static/releases/gastro-spectra-v29.0.0.apk \
+                     static/releases/gastro-spectra-v29.0.0.apk.sha256 \
+                     static/releases/build-info.json
+          if git diff --cached --quiet; then
+            echo "::notice::APK bytes unchanged - nothing to commit"
+            exit 0
+          fi
+          git commit -m "ci: bundle GASTRO-SPECTRA v29.0.0 APK [skip ci]"
+          git pull --rebase --autostash origin main || true
+          git push origin HEAD:main
