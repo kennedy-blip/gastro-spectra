@@ -10,7 +10,7 @@ const config = {
   kit: {
     adapter: buildingApk
       ? adapterStatic({ pages: 'build-apk', assets: 'build-apk', fallback: 'index.html', precompress: false })
-      : adapterVercel({ runtime: 'nodejs20.x' })
+      : adapterVercel({ runtime: 'nodejs22.x' })
   }
 };
 
