@@ -12,3 +12,4 @@ android/app/build/
 android/.gradle/
 android/build/
 static/releases/*.apk
+build-apk/

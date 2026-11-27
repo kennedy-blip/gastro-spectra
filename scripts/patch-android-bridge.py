@@ -53,6 +53,17 @@ class MainActivity : BridgeActivity() {
 """
 
 
+def raise_min_sdk() -> None:
+    """GASTRO-SPECTRA targets Android API 26+ (unprocessed AudioRecord + Camera2 AWB lock)."""
+    variables = ROOT / "variables.gradle"
+    if not variables.exists():
+        return
+    text = variables.read_text()
+    if "minSdkVersion = 22" in text:
+        variables.write_text(text.replace("minSdkVersion = 22", "minSdkVersion = 26"))
+        print("raised minSdkVersion 22 -> 26")
+
+
 def enable_kotlin() -> None:
     root_gradle = ROOT / "build.gradle"
     if root_gradle.exists():
@@ -60,7 +71,7 @@ def enable_kotlin() -> None:
         if "kotlin-gradle-plugin" not in text and "dependencies {" in text:
             text = text.replace(
                 "dependencies {",
-                'dependencies {\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"',
+                'dependencies {\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"',
                 1,
             )
             root_gradle.write_text(text)
@@ -73,6 +84,13 @@ def enable_kotlin() -> None:
         print("android/app/build.gradle missing - skipped Kotlin application plugin")
         return
     text = app_gradle.read_text()
+    if "kotlinOptions" not in text and "android {" in text:
+        # Capacitor compiles Java at 17 (capacitor.build.gradle); Kotlin must match.
+        text = text.replace(
+            "android {",
+            'android {\n    kotlinOptions {\n        jvmTarget = "17"\n    }',
+            1,
+        )
     if "kotlin-android" not in text:
         # Kotlin must be applied *after* the Android application plugin.
         if "apply plugin: 'com.android.application'" in text:
@@ -86,7 +104,7 @@ def enable_kotlin() -> None:
     if "kotlin-stdlib" not in text:
         text = re.sub(
             r"dependencies\s*\{",
-            'dependencies {\n    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"',
+            'dependencies {\n    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"',
             text,
             count=1,
         )
@@ -109,6 +127,7 @@ def main() -> int:
     if not ROOT.exists():
         print("android/ not present - nothing to patch", file=sys.stderr)
         return 0
+    raise_min_sdk()
     enable_kotlin()
     register_plugins()
     return 0

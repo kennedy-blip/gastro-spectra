@@ -27,8 +27,8 @@ jobs:
       - name: Install web dependencies
         run: npm ci || npm install
 
-      - name: Build SvelteKit assets
-        run: npm run build
+      - name: Build static SPA assets for Capacitor
+        run: npm run build:apk
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

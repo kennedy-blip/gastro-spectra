@@ -1,7 +1,7 @@
 {
   "appId": "com.gastrospectra.clinical",
   "appName": "GASTRO-SPECTRA",
-  "webDir": ".vercel/output/static",
+  "webDir": "build-apk",
   "server": {
     "androidScheme": "https",
     "hostname": "localhost"
@@ -12,6 +12,8 @@
     "zoomEnabled": false
   },
   "plugins": {
-    "CapacitorHttp": { "enabled": true }
+    "CapacitorHttp": {
+      "enabled": true
+    }
   }
 }
