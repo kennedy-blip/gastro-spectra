@@ -1,0 +1,14 @@
+{
+  "name": "GASTRO-SPECTRA · Clinical GI Workstation",
+  "short_name": "GASTRO-SPECTRA",
+  "description": "Five clinical GI laboratories — phonoenterography, swallowing/LPR, FODMAP-SIBO kinetics, optical stool colorimetry and hepatology/endoscopy economics.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#070d17",
+  "theme_color": "#070d17",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/favicon.ico", "sizes": "32x32", "type": "image/x-icon" }
+  ]
+}
