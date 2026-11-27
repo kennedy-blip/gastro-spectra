@@ -28,7 +28,11 @@ jobs:
         run: npm ci || npm install
 
       - name: Build static SPA assets for Capacitor
-        run: npm run build:apk
+        run: |
+          npm run build:apk
+          # never ship the published APK inside the APK itself
+          rm -f build-apk/releases/*.apk
+          echo "web bundle: $(find build-apk -type f | wc -l) files, $(du -sh build-apk | cut -f1)"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
