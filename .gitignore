@@ -1,0 +1,14 @@
+node_modules/
+.svelte-kit/
+.vercel/
+build/
+dist/
+__pycache__/
+*.pyc
+.env
+.env.*
+.DS_Store
+android/app/build/
+android/.gradle/
+android/build/
+static/releases/*.apk

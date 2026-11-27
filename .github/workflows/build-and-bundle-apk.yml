@@ -1,0 +1,97 @@
+name: Build & Bundle GASTRO-SPECTRA APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'static/releases/**'
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install web dependencies
+        run: npm ci || npm install
+
+      - name: Build SvelteKit assets
+        run: npm run build
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Preserve native Capacitor plugins
+        run: |
+          mkdir -p /tmp/gastro-plugins
+          cp -r android/app/src/main/java/com/gastrospectra/plugins /tmp/gastro-plugins/ 2>/dev/null || true
+          ls -R /tmp/gastro-plugins || true
+
+      - name: Generate Capacitor Android project
+        run: |
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+      - name: Restore plugins & wire native bridge
+        run: |
+          mkdir -p android/app/src/main/java/com/gastrospectra/plugins
+          cp -r /tmp/gastro-plugins/plugins/. android/app/src/main/java/com/gastrospectra/plugins/ 2>/dev/null || true
+          ls -R android/app/src/main/java/com/gastrospectra/plugins
+          python3 scripts/patch-android-bridge.py
+
+      - name: Gradle build (debug-signed installable APK)
+        working-directory: android
+        run: |
+          chmod +x gradlew || true
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Stage APK artifact with checksum
+        run: |
+          mkdir -p static/releases
+          APK=$(find android -type f -name "*.apk" | sort | head -n 1)
+          if [ -z "$APK" ]; then echo "::error::No APK produced"; exit 1; fi
+          echo "Using $APK"
+          cp "$APK" static/releases/gastro-spectra-v29.0.0.apk
+          sha256sum static/releases/gastro-spectra-v29.0.0.apk | tee static/releases/gastro-spectra-v29.0.0.apk.sha256
+          ls -lh static/releases/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gastro-spectra-apk
+          path: |
+            static/releases/gastro-spectra-v29.0.0.apk
+            static/releases/gastro-spectra-v29.0.0.apk.sha256
+          retention-days: 30
+
+      - name: Commit APK into releases folder
+        run: |
+          git config user.name "gastro-spectra-ci"
+          git config user.email "ci@gastro-spectra.local"
+          git add -f static/releases/gastro-spectra-v29.0.0.apk static/releases/gastro-spectra-v29.0.0.apk.sha256
+          git commit -m "ci: bundle GASTRO-SPECTRA v29.0.0 APK [skip ci]" || echo "no changes to commit"
+          git push origin HEAD:main || echo "push skipped (branch protection)"
