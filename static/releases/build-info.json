@@ -2,11 +2,11 @@
   "app": "GASTRO-SPECTRA",
   "version": "29.0.0-polyglot",
   "packageId": "com.gastrospectra.clinical",
-  "commit": "2f6cfc0",
-  "runId": "46016377639",
+  "commit": "db25a29",
+  "runId": "46016796513",
   "apk": "gastro-spectra-v29.0.0.apk",
-  "bytes": 7284009,
-  "sha256": "d5873a8b1e703f4637674e63c3e3f6e470a25c15f64237361d18ac6dad2eca50",
+  "bytes": 3824798,
+  "sha256": "5d5a031e708ee470b03da5b000f7a76871a58142d4398336054d1849e4a67dde",
   "assets": 23,
-  "builtAt": "2026-11-27T14:30:50Z"
+  "builtAt": "2026-11-27T14:34:19Z"
 }
