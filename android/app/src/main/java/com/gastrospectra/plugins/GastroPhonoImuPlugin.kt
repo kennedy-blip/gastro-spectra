@@ -68,11 +68,11 @@ class GastroPhonoImuPlugin : Plugin(), SensorEventListener {
     }
 
     @PluginMethod
-    override fun requestPermissions(call: PluginCall) {
-        if (getPermissionState("microphone") != com.getcapacitor.PermissionState.GRANTED) {
-            requestPermissionForAlias("microphone", call, "permissionCallback")
-        } else {
+    fun requestMicPermission(call: PluginCall) {
+        if (getPermissionState("microphone") == com.getcapacitor.PermissionState.GRANTED) {
             call.resolve(JSObject().put("microphone", "GRANTED"))
+        } else {
+            requestPermissionForAlias("microphone", call, "permissionCallback")
         }
     }
 
@@ -178,8 +178,6 @@ class GastroPhonoImuPlugin : Plugin(), SensorEventListener {
 
     private var lastAccel = FloatArray(3)
 
-    override fun onSensorEvent(event: SensorEvent?) = Unit
-
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> {
@@ -216,7 +214,14 @@ class GastroPhonoImuPlugin : Plugin(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 
     override fun handleOnDestroy() {
-        stopPhonoCapture(PluginCall(JSObject(), "")).also { /* best-effort release */ }
+        capturing = false
+        captureThread?.join(300)
+        captureThread = null
+        audioRecord?.let {
+            try { it.stop() } catch (_: IllegalStateException) { }
+            it.release()
+        }
+        audioRecord = null
         sensorManager?.unregisterListener(this)
         super.handleOnDestroy()
     }
