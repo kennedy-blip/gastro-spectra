@@ -108,9 +108,16 @@ jobs:
       - name: Stage APK artifact with checksum
         run: |
           mkdir -p static/releases
-          APK=$(find android -type f -name "*.apk" | sort | head -n 1)
-          if [ -z "$APK" ]; then echo "::error::No APK produced"; exit 1; fi
-          echo "Using $APK"
+          echo "::notice::gradle apks: $(find android -type f -name '*.apk' -printf '%p(%s) ' | sort)"
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          if [ ! -f "$APK" ]; then
+            APK=$(find android -type f -name "*.apk" -not -path "*/assets/*" | sort | head -n 1)
+          fi
+          if [ -z "$APK" ] || [ ! -f "$APK" ]; then echo "::error::No APK produced"; exit 1; fi
+          echo "::notice::staging $APK ($(stat -c%s "$APK") bytes)"
+          echo "::notice::counts apk=$(unzip -l "$APK" | awk '{print $4}' | grep -c 'assets/public') source=$(find android/app/src/main/assets/public -type f | wc -l)"
+          echo "::notice::apk assets: $(unzip -l "$APK" | awk '{print $4}' | grep 'assets/public' | paste -sd, -)"
+          echo "::notice::source assets: $(cd android/app/src/main/assets/public && find . -type f | sort | paste -sd, -)"
           cp "$APK" static/releases/gastro-spectra-v29.0.0.apk
           sha256sum static/releases/gastro-spectra-v29.0.0.apk | tee static/releases/gastro-spectra-v29.0.0.apk.sha256
           unzip -l static/releases/gastro-spectra-v29.0.0.apk | grep -q "assets/public/index.html" \
