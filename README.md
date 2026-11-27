@@ -71,11 +71,19 @@ python3 api/gastro_physics.py   # smoke-test the Python solvers
 
 ## Deploy
 
+**Live production workstation — <https://gastro-spectra.vercel.app>** (Vercel project
+`gastro-spectra`, framework `sveltekit`, Node.js 22 function runtime, region `iad1`).
+
 * **Vercel** — framework preset `sveltekit`; `npm run build`; the Python function ships from
-  `api/gastro_physics.py` with `includeFiles: python_gastro/**`.
+  `api/gastro_physics.py` with `includeFiles: python_gastro/**`. `svelte.config.js` pins the
+  function runtime to `nodejs22.x` (Vercel discontinued `nodejs20.x`).
 * **Android** — `npm run cap:sync && npx cap open android`, or let
   `.github/workflows/build-and-bundle-apk.yml` build and publish
-  `static/releases/gastro-spectra-v29.0.0.apk`. Until CI publishes it, the in-app APK modal
+  `static/releases/gastro-spectra-v29.0.0.apk` (+ `.sha256`). The APK job builds the static SPA
+  bundle (`npm run build:apk`, Capacitor needs a real `index.html`), regenerates the Android
+  project, wires the two Kotlin plugins through `scripts/patch-android-bridge.py`, and falls back
+  to a web-only APK (`scripts/web-only-android.py`) if the native compile ever fails.
+  Download at `/releases/gastro-spectra-v29.0.0.apk`; until CI publishes it, the in-app APK modal
   synthesizes a valid APK-structured ZIP bundle and streams it with byte progress (never 404s).
 
 ---
