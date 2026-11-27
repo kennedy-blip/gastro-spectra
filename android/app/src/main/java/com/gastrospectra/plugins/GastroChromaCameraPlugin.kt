@@ -132,6 +132,7 @@ class GastroChromaCameraPlugin : Plugin() {
         imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.YUV_420_888, 2)
         imageReader?.setOnImageAvailableListener({ reader ->
             val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+            reader.setOnImageAvailableListener(null, null)
             try {
                 val planeY = image.planes[0]
                 val planeU = image.planes[1]

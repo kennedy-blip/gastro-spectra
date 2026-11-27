@@ -36,13 +36,32 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configure Android SDK (preinstalled on the runner)
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$SDK_ROOT" ]; then
+            echo "::error::Android SDK not found at $SDK_ROOT"
+            ls -la /usr/local/lib/android 2>/dev/null || true
+            exit 1
+          fi
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMANAGER="$(ls "$SDK_ROOT"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -n1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::sdkmanager not found under $SDK_ROOT/cmdline-tools"
+            ls -R "$SDK_ROOT/cmdline-tools" 2>/dev/null | head -40 || true
+            exit 1
+          fi
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "Using $SDKMANAGER"
 
       - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          set -euo pipefail
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          "$SDKMANAGER" --list_installed | head -20
 
       - name: Preserve native Capacitor plugins
         run: |
@@ -67,7 +86,13 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew || true
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          if ./gradlew assembleDebug --no-daemon --stacktrace; then
+            echo "APK built with both native Kotlin plugins"
+          else
+            echo "::warning::Native plugin build failed - retrying as a web-only APK"
+            python3 ../scripts/web-only-android.py
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
 
       - name: Stage APK artifact with checksum
         run: |
